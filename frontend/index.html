@@ -3,22 +3,205 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#12161c" />
   <title>V2FraudGent Console</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand"><span class="brand-mark">V</span><div><strong>V2FraudGent</strong><small>Risk intelligence</small></div></div>
-    <nav>
-      <a class="active" href="#overview">Overview</a><a href="#transactions">Transactions</a><a href="#webhooks">Webhook activity</a><a href="#model">Model & policy</a>
-    </nav>
-    <div class="sidebar-bottom"><div class="status-dot"></div><span>Research V2 online</span><button>⌘ K</button></div>
-  </aside>
-  <main class="main">
-    <header class="topbar"><div><p class="eyebrow">MONDAY, SEPTEMBER 7, 2026</p><h1>Good evening, Pavan.</h1></div><div class="top-actions"><span class="demo-pill">Demo workspace</span><button class="icon-btn">⌕</button><div class="avatar">PK</div></div></header>
-    <section class="hero-row"><div><h2>Risk overview</h2><p class="muted">A calm view of what needs attention across your payment stream.</p></div><button class="primary-btn">＋ Review queue</button></section>
-    <section class="metrics"><article><span class="metric-label">Transactions today</span><strong>12,486</strong><span class="trend positive">↑ 8.4% <em>vs yesterday</em></span></article><article><span class="metric-label">Flagged for review</span><strong>164</strong><span class="trend warning">↑ 2.1% <em>vs yesterday</em></span></article><article><span class="metric-label">Fraud captured</span><strong>78.2%</strong><span class="trend positive">↑ 4.8% <em>vs last week</em></span></article><article><span class="metric-label">Average decision time</span><strong>42<span class="unit">ms</span></strong><span class="trend neutral">Research V2 · 860 trees</span></article></section>
-    <section class="content-grid"><article class="panel chart-panel"><div class="panel-head"><div><h3>Transaction volume</h3><p class="muted">Successful and reviewed payments over the last 24 hours</p></div><select><option>Last 24 hours</option><option>Last 7 days</option></select></div><div class="chart"><div class="gridline g1"></div><div class="gridline g2"></div><div class="gridline g3"></div><svg viewBox="0 0 720 230" preserveAspectRatio="none"><path class="area" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40 L720 230 L0 230Z"/><path class="line" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40"/></svg><div class="chart-labels"><span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>Now</span></div></div></article><article class="panel attention"><div class="panel-head"><div><h3>Needs attention</h3><p class="muted">Decisions worth a second look</p></div><a href="#transactions">View all</a></div><div class="attention-item"><span class="risk high">HIGH</span><div><strong>pay_7f91…c20a</strong><p>New device · unusual amount</p></div><b>₹18,400</b></div><div class="attention-item"><span class="risk medium">MED</span><div><strong>pay_2a81…9f11</strong><p>Rapid repeat attempts</p></div><b>₹7,250</b></div><div class="attention-item"><span class="risk medium">MED</span><div><strong>pay_91cd…31be</strong><p>Address differs from history</p></div><b>₹3,800</b></div></article></section>
-    <section class="panel activity"><div class="panel-head"><div><h3>Recent decisions</h3><p class="muted">Live scoring activity from the Research V2 engine</p></div><a href="#transactions">Open transactions →</a></div><table><thead><tr><th>Transaction</th><th>Time</th><th>Amount</th><th>Risk score</th><th>Decision</th></tr></thead><tbody><tr><td><strong>pay_8d4c…a921</strong><small>Card · Visa debit</small></td><td>18:42:09</td><td>₹2,500</td><td><span class="score low">0.08</span></td><td><span class="decision allowed">Allowed</span></td></tr><tr><td><strong>pay_7f91…c20a</strong><small>Card · Visa debit</small></td><td>18:41:52</td><td>₹18,400</td><td><span class="score high-score">0.91</span></td><td><span class="decision review">Review</span></td></tr><tr><td><strong>pay_2a81…9f11</strong><small>Card · Mastercard</small></td><td>18:41:28</td><td>₹7,250</td><td><span class="score medium-score">0.63</span></td><td><span class="decision review">Review</span></td></tr></tbody></table></section>
-  </main><script src="./app.js"></script>
-</body></html>
+  <div class="app-shell">
+    <div class="mobile-backdrop" data-mobile-backdrop></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <span class="brand-mark">V</span>
+          <div>
+            <strong>V2FraudGent</strong>
+            <small>Risk intelligence</small>
+          </div>
+        </div>
+
+        <nav aria-label="Primary navigation">
+          <a class="active" href="#overview" data-nav="overview"><span class="nav-dot"></span>Overview</a>
+          <a href="#transactions" data-nav="transactions">Transactions</a>
+          <a href="#agent" data-nav="agent">Agent</a>
+          <a href="#webhooks" data-nav="webhooks">Webhook activity</a>
+          <a href="#model" data-nav="model">Model &amp; policy</a>
+        </nav>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="status-dot" data-status-dot></div>
+        <span data-status-text>Research V2 online</span>
+        <button type="button" class="shortcut" title="Keyboard shortcut">⌘ K</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="menu-btn" data-menu-toggle aria-label="Open navigation">☰</button>
+          <div>
+            <p class="eyebrow" data-today-label>V2FRAUDGENT CONSOLE</p>
+            <h1>Good evening, Pavan.</h1>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <span class="demo-pill" data-workspace-pill>Demo workspace</span>
+          <button type="button" class="icon-btn" aria-label="Search">⌕</button>
+          <div class="avatar">PK</div>
+        </div>
+      </header>
+
+      <section class="hero-row" id="overview">
+        <div>
+          <h2>Risk overview</h2>
+          <p class="muted">A calm view of what needs attention across your payment stream.</p>
+        </div>
+        <button type="button" class="primary-btn" data-review-queue>＋ Review queue</button>
+      </section>
+
+      <section class="metrics" aria-label="Risk metrics">
+        <article>
+          <span class="metric-label">Transactions today</span>
+          <strong>12,486</strong>
+          <span class="trend positive">↑ 8.4% <em>vs yesterday</em></span>
+        </article>
+        <article>
+          <span class="metric-label">Flagged for review</span>
+          <strong>164</strong>
+          <span class="trend warning">↑ 2.1% <em>vs yesterday</em></span>
+        </article>
+        <article>
+          <span class="metric-label">Fraud captured</span>
+          <strong>78.2%</strong>
+          <span class="trend positive">↑ 4.8% <em>vs last week</em></span>
+        </article>
+        <article>
+          <span class="metric-label">Average decision time</span>
+          <strong>42<span class="unit">ms</span></strong>
+          <span class="trend neutral">Research V2 · 860 trees</span>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Transaction volume</h3>
+              <p class="muted">Successful and reviewed payments over the last 24 hours</p>
+            </div>
+            <select aria-label="Transaction period">
+              <option>Last 24 hours</option>
+              <option>Last 7 days</option>
+            </select>
+          </div>
+          <div class="chart">
+            <div class="gridline g1"></div>
+            <div class="gridline g2"></div>
+            <div class="gridline g3"></div>
+            <svg viewBox="0 0 720 230" preserveAspectRatio="none" aria-label="Transaction volume chart" role="img">
+              <path class="area" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40 L720 230 L0 230Z" />
+              <path class="line" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40" />
+            </svg>
+            <div class="chart-labels"><span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>Now</span></div>
+          </div>
+        </article>
+
+        <article class="panel attention">
+          <div class="panel-head">
+            <div>
+              <h3>Needs attention</h3>
+              <p class="muted">Decisions worth a second look</p>
+            </div>
+            <a href="#transactions">View all</a>
+          </div>
+          <div class="attention-item">
+            <span class="risk high">HIGH</span>
+            <div><strong>pay_7f91…c20a</strong><p>New device · unusual amount</p></div>
+            <b>₹18,400</b>
+          </div>
+          <div class="attention-item">
+            <span class="risk medium">MED</span>
+            <div><strong>pay_2a81…9f11</strong><p>Rapid repeat attempts</p></div>
+            <b>₹7,250</b>
+          </div>
+          <div class="attention-item">
+            <span class="risk medium">MED</span>
+            <div><strong>pay_91cd…31be</strong><p>Address differs from history</p></div>
+            <b>₹3,800</b>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel agent-panel" id="agent">
+        <div class="panel-head">
+          <div>
+            <h3>Agent connection</h3>
+            <p class="muted">Live connection to the V2FraudGent API and Research V2 runtime.</p>
+          </div>
+          <span class="connection-badge checking" data-connection-badge>Checking</span>
+        </div>
+
+        <div class="agent-grid">
+          <div class="agent-summary">
+            <div class="agent-icon">V</div>
+            <div>
+              <strong>Research V2 agent</strong>
+              <p data-connection-copy>Checking the scoring service…</p>
+            </div>
+          </div>
+          <div class="agent-stat"><span>Model</span><strong data-agent-model>—</strong></div>
+          <div class="agent-stat"><span>Features</span><strong data-agent-features>—</strong></div>
+          <div class="agent-stat"><span>Trees</span><strong data-agent-trees>—</strong></div>
+          <div class="agent-actions">
+            <button type="button" class="secondary-btn" data-connect-agent>Reconnect</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel activity" id="transactions">
+        <div class="panel-head">
+          <div>
+            <h3>Recent decisions</h3>
+            <p class="muted">Live scoring activity from the Research V2 engine</p>
+          </div>
+          <a href="#transactions">Open transactions →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Transaction</th><th>Time</th><th>Amount</th><th>Risk score</th><th>Decision</th></tr></thead>
+            <tbody>
+              <tr><td><strong>pay_8d4c…a921</strong><small>Card · Visa debit</small></td><td>18:42:09</td><td>₹2,500</td><td><span class="score low">0.08</span></td><td><span class="decision allowed">Allowed</span></td></tr>
+              <tr><td><strong>pay_7f91…c20a</strong><small>Card · Visa debit</small></td><td>18:41:52</td><td>₹18,400</td><td><span class="score high-score">0.91</span></td><td><span class="decision review">Review</span></td></tr>
+              <tr><td><strong>pay_2a81…9f11</strong><small>Card · Mastercard</small></td><td>18:41:28</td><td>₹7,250</td><td><span class="score medium-score">0.63</span></td><td><span class="decision review">Review</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="split-panels" id="webhooks">
+        <article class="panel compact-panel">
+          <div class="panel-head"><div><h3>Webhook activity</h3><p class="muted">Inbound Razorpay event channel</p></div><span class="live-label">READY</span></div>
+          <div class="event-row"><span class="event-dot success"></span><div><strong>Signature verification</strong><p>HMAC-SHA256 validation enabled</p></div><span class="event-state">Secure</span></div>
+          <div class="event-row"><span class="event-dot success"></span><div><strong>Duplicate protection</strong><p>Processed-event registry enabled</p></div><span class="event-state">Active</span></div>
+          <div class="event-row"><span class="event-dot success"></span><div><strong>Chronological guard</strong><p>Late transactions rejected safely</p></div><span class="event-state">Active</span></div>
+        </article>
+
+        <article class="panel compact-panel" id="model">
+          <div class="panel-head"><div><h3>Model &amp; policy</h3><p class="muted">Frozen inference configuration</p></div><a href="#model">Details →</a></div>
+          <div class="policy-row"><span>Research V2</span><strong>92 features</strong></div>
+          <div class="policy-row"><span>Review threshold</span><strong>0.55</strong></div>
+          <div class="policy-row"><span>High-risk threshold</span><strong>0.85</strong></div>
+          <div class="policy-row"><span>Calibration</span><strong>Sigmoid logit</strong></div>
+        </article>
+      </section>
+
+      <footer class="footer-note">V2FraudGent Console · Research V2 · Frontend preview</footer>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
