@@ -1,0 +1,7 @@
+{
+  "method": "sigmoid_logit_calibration",
+  "intercept": 0.06972214195416256,
+  "coef": 0.956189693410165,
+  "input": "research_v2_raw_score",
+  "training_partition": "first 50% of validation period"
+}
