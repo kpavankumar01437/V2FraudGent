@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +8,7 @@
   <title>V2FraudGent Console</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
   <div class="app-shell">
     <div class="mobile-backdrop" data-mobile-backdrop></div>
@@ -102,10 +104,14 @@
             <div class="gridline g2"></div>
             <div class="gridline g3"></div>
             <svg viewBox="0 0 720 230" preserveAspectRatio="none" aria-label="Transaction volume chart" role="img">
-              <path class="area" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40 L720 230 L0 230Z" />
-              <path class="line" d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40" />
+              <path class="area"
+                d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40 L720 230 L0 230Z" />
+              <path class="line"
+                d="M0 190 C45 175 55 150 95 158 S150 115 190 132 S245 70 285 104 S335 82 370 105 S420 45 460 77 S520 62 555 90 S615 35 650 57 S690 25 720 40" />
             </svg>
-            <div class="chart-labels"><span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>Now</span></div>
+            <div class="chart-labels">
+              <span>12am</span><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span><span>Now</span>
+            </div>
           </div>
         </article>
 
@@ -119,17 +125,23 @@
           </div>
           <div class="attention-item">
             <span class="risk high">HIGH</span>
-            <div><strong>pay_7f91…c20a</strong><p>New device · unusual amount</p></div>
+            <div><strong>pay_7f91…c20a</strong>
+              <p>New device · unusual amount</p>
+            </div>
             <b>₹18,400</b>
           </div>
           <div class="attention-item">
             <span class="risk medium">MED</span>
-            <div><strong>pay_2a81…9f11</strong><p>Rapid repeat attempts</p></div>
+            <div><strong>pay_2a81…9f11</strong>
+              <p>Rapid repeat attempts</p>
+            </div>
             <b>₹7,250</b>
           </div>
           <div class="attention-item">
             <span class="risk medium">MED</span>
-            <div><strong>pay_91cd…31be</strong><p>Address differs from history</p></div>
+            <div><strong>pay_91cd…31be</strong>
+              <p>Address differs from history</p>
+            </div>
             <b>₹3,800</b>
           </div>
         </article>
@@ -171,11 +183,37 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Transaction</th><th>Time</th><th>Amount</th><th>Risk score</th><th>Decision</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Transaction</th>
+                <th>Time</th>
+                <th>Amount</th>
+                <th>Risk score</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td><strong>pay_8d4c…a921</strong><small>Card · Visa debit</small></td><td>18:42:09</td><td>₹2,500</td><td><span class="score low">0.08</span></td><td><span class="decision allowed">Allowed</span></td></tr>
-              <tr><td><strong>pay_7f91…c20a</strong><small>Card · Visa debit</small></td><td>18:41:52</td><td>₹18,400</td><td><span class="score high-score">0.91</span></td><td><span class="decision review">Review</span></td></tr>
-              <tr><td><strong>pay_2a81…9f11</strong><small>Card · Mastercard</small></td><td>18:41:28</td><td>₹7,250</td><td><span class="score medium-score">0.63</span></td><td><span class="decision review">Review</span></td></tr>
+              <tr>
+                <td><strong>pay_8d4c…a921</strong><small>Card · Visa debit</small></td>
+                <td>18:42:09</td>
+                <td>₹2,500</td>
+                <td><span class="score low">0.08</span></td>
+                <td><span class="decision allowed">Allowed</span></td>
+              </tr>
+              <tr>
+                <td><strong>pay_7f91…c20a</strong><small>Card · Visa debit</small></td>
+                <td>18:41:52</td>
+                <td>₹18,400</td>
+                <td><span class="score high-score">0.91</span></td>
+                <td><span class="decision review">Review</span></td>
+              </tr>
+              <tr>
+                <td><strong>pay_2a81…9f11</strong><small>Card · Mastercard</small></td>
+                <td>18:41:28</td>
+                <td>₹7,250</td>
+                <td><span class="score medium-score">0.63</span></td>
+                <td><span class="decision review">Review</span></td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -183,14 +221,36 @@
 
       <section class="split-panels" id="webhooks">
         <article class="panel compact-panel">
-          <div class="panel-head"><div><h3>Webhook activity</h3><p class="muted">Inbound Razorpay event channel</p></div><span class="live-label">READY</span></div>
-          <div class="event-row"><span class="event-dot success"></span><div><strong>Signature verification</strong><p>HMAC-SHA256 validation enabled</p></div><span class="event-state">Secure</span></div>
-          <div class="event-row"><span class="event-dot success"></span><div><strong>Duplicate protection</strong><p>Processed-event registry enabled</p></div><span class="event-state">Active</span></div>
-          <div class="event-row"><span class="event-dot success"></span><div><strong>Chronological guard</strong><p>Late transactions rejected safely</p></div><span class="event-state">Active</span></div>
+          <div class="panel-head">
+            <div>
+              <h3>Webhook activity</h3>
+              <p class="muted">Inbound Razorpay event channel</p>
+            </div><span class="live-label">READY</span>
+          </div>
+          <div class="event-row"><span class="event-dot success"></span>
+            <div><strong>Signature verification</strong>
+              <p>HMAC-SHA256 validation enabled</p>
+            </div><span class="event-state">Secure</span>
+          </div>
+          <div class="event-row"><span class="event-dot success"></span>
+            <div><strong>Duplicate protection</strong>
+              <p>Processed-event registry enabled</p>
+            </div><span class="event-state">Active</span>
+          </div>
+          <div class="event-row"><span class="event-dot success"></span>
+            <div><strong>Chronological guard</strong>
+              <p>Late transactions rejected safely</p>
+            </div><span class="event-state">Active</span>
+          </div>
         </article>
 
         <article class="panel compact-panel" id="model">
-          <div class="panel-head"><div><h3>Model &amp; policy</h3><p class="muted">Frozen inference configuration</p></div><a href="#model">Details →</a></div>
+          <div class="panel-head">
+            <div>
+              <h3>Model &amp; policy</h3>
+              <p class="muted">Frozen inference configuration</p>
+            </div><a href="#model">Details →</a>
+          </div>
           <div class="policy-row"><span>Research V2</span><strong>92 features</strong></div>
           <div class="policy-row"><span>Review threshold</span><strong>0.55</strong></div>
           <div class="policy-row"><span>High-risk threshold</span><strong>0.85</strong></div>
@@ -204,4 +264,5 @@
 
   <script src="./app.js"></script>
 </body>
+
 </html>
