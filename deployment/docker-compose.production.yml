@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:?set in deployment environment}
+      V2FRAUDGENT_ENV: production
+      V2FRAUDGENT_CORS_ORIGINS: ${V2FRAUDGENT_CORS_ORIGINS:?set to the public console origin}
+    volumes:
+      - v2fraudgent_runtime:/content/drive/MyDrive/razorpay_fraud_data/deployment/research_v2_api
+      - ../models:/content/drive/MyDrive/razorpay_fraud_data/models:ro
+    expose:
+      - "8012"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8012/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  console:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      V2FRAUDGENT_DOMAIN: ${V2FRAUDGENT_DOMAIN:?set to your public domain, or :80 for local HTTP}
+      CADDY_DASHBOARD_USER: ${CADDY_DASHBOARD_USER:?set dashboard username}
+      CADDY_DASHBOARD_PASSWORD: ${CADDY_DASHBOARD_PASSWORD:?set dashboard password}
+    command: >-
+      sh -c 'export CADDY_DASHBOARD_HASH="$$(caddy hash-password --plaintext "$$CADDY_DASHBOARD_PASSWORD")" &&
+      caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../frontend:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  v2fraudgent_runtime:
+  caddy_data:
+  caddy_config:
