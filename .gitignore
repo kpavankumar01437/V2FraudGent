@@ -16,3 +16,6 @@ build/
 .ipynb_checkpoints/
 *.key
 *.pem
+
+# Local frozen model artifacts
+models/
