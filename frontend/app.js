@@ -77,6 +77,190 @@ function renderAgentOnline(health) {
   if (pill) pill.textContent = 'API connected';
 }
 
+function formatAmount(amount, currency = 'INR') {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
+    return '—';
+  }
+
+  if (currency === 'INR') {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(numericAmount);
+  }
+
+  return `${numericAmount.toFixed(2)} ${currency}`;
+}
+
+function formatTransactionTime(createdAt) {
+  const timestamp = Number(createdAt);
+
+  if (!Number.isFinite(timestamp)) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(timestamp * 1000));
+}
+
+function scoreClass(score) {
+  const numericScore = Number(score);
+
+  if (!Number.isFinite(numericScore)) {
+    return 'low';
+  }
+
+  if (numericScore >= 0.85) {
+    return 'high-score';
+  }
+
+  if (numericScore >= 0.55) {
+    return 'medium-score';
+  }
+
+  return 'low';
+}
+
+function decisionClass(action) {
+  return action === 'ALLOW_MONITOR'
+    ? 'allowed'
+    : 'review';
+}
+
+function renderTransactions(transactions) {
+  const body = $('[data-transactions-body]');
+
+  if (!body) {
+    return;
+  }
+
+  body.replaceChildren();
+
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+
+    cell.colSpan = 5;
+    cell.innerHTML = '<span class="muted">No live decisions yet.</span>';
+
+    row.appendChild(cell);
+    body.appendChild(row);
+    return;
+  }
+
+  transactions.forEach((transaction) => {
+    const row = document.createElement('tr');
+
+    const transactionCell = document.createElement('td');
+    const transactionStrong = document.createElement('strong');
+    const transactionSmall = document.createElement('small');
+
+    transactionStrong.textContent =
+      transaction.transaction_id || 'Unknown transaction';
+
+    transactionSmall.textContent =
+      `${transaction.risk_zone || 'UNKNOWN'} · Research V2`;
+
+    transactionCell.append(
+      transactionStrong,
+      transactionSmall
+    );
+
+    const timeCell = document.createElement('td');
+    timeCell.textContent = formatTransactionTime(
+      transaction.created_at
+    );
+
+    const amountCell = document.createElement('td');
+    amountCell.textContent = formatAmount(
+      transaction.amount,
+      transaction.currency
+    );
+
+    const scoreCell = document.createElement('td');
+    const score = document.createElement('span');
+    score.className = `score ${scoreClass(
+      transaction.calibrated_risk_score
+    )}`;
+
+    score.textContent = Number.isFinite(
+      Number(transaction.calibrated_risk_score)
+    )
+      ? Number(transaction.calibrated_risk_score).toFixed(3)
+      : '—';
+
+    scoreCell.appendChild(score);
+
+    const decisionCell = document.createElement('td');
+    const decision = document.createElement('span');
+
+    decision.className =
+      `decision ${decisionClass(
+        transaction.recommended_action
+      )}`;
+
+    decision.textContent =
+      transaction.recommended_action === 'ALLOW_MONITOR'
+        ? 'Allowed'
+        : 'Review';
+
+    decisionCell.appendChild(decision);
+
+    row.append(
+      transactionCell,
+      timeCell,
+      amountCell,
+      scoreCell,
+      decisionCell
+    );
+
+    body.appendChild(row);
+  });
+}
+
+async function loadTransactions() {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/transactions?limit=10`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Transaction endpoint returned HTTP ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    if (data?.status !== 'ok') {
+      throw new Error(
+        'Transaction endpoint responded without status=ok'
+      );
+    }
+
+    renderTransactions(data.transactions);
+  } catch (error) {
+    renderTransactions([]);
+
+    console.error(
+      'Unable to load live transactions:',
+      error
+    );
+  }
+}
 async function checkAgent() {
   const badge = $('[data-connection-badge]');
   if (badge) {
@@ -135,3 +319,4 @@ if (dateLabel) {
 }
 
 checkAgent();
+loadTransactions();

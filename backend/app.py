@@ -37,6 +37,10 @@ EVENTS_PATH = (
     DEPLOY_DIR
     / "research_v2_processed_events.pkl"
 )
+DECISIONS_PATH = (
+    DEPLOY_DIR
+    / "research_v2_decisions.pkl"
+)
 
 
 # ============================================================
@@ -188,6 +192,53 @@ def _save_processed_events(events):
         tmp_path,
         EVENTS_PATH
     )
+
+
+def _load_decisions():
+    if not DECISIONS_PATH.exists():
+        return []
+
+    with DECISIONS_PATH.open(
+        "rb"
+    ) as f:
+
+        decisions = pickle.load(f)
+
+    if not isinstance(
+        decisions,
+        list
+    ):
+        raise TypeError(
+            "Persisted decisions is not a list."
+        )
+
+    return decisions
+
+
+def _save_decisions(decisions):
+    tmp_path = (
+        str(DECISIONS_PATH)
+        + ".tmp"
+    )
+
+    with open(
+        tmp_path,
+        "wb"
+    ) as f:
+
+        pickle.dump(
+            decisions,
+            f,
+            protocol=pickle.HIGHEST_PROTOCOL
+        )
+
+    os.replace(
+        tmp_path,
+        DECISIONS_PATH
+    )
+
+
+DECISIONS = _load_decisions()
 
 
 STATE = _load_state()
@@ -611,6 +662,31 @@ def health():
             type(STATE).__name__,
     }
 
+@app.get(
+    "/api/transactions"
+)
+def get_transactions(
+    limit: int = 50
+):
+    if limit < 1:
+        limit = 1
+
+    if limit > 200:
+        limit = 200
+
+    with STATE_LOCK:
+        recent = list(
+            reversed(
+                DECISIONS[-limit:]
+            )
+        )
+
+    return {
+        "status": "ok",
+        "count": len(recent),
+        "transactions": recent,
+    }
+
 
 # ============================================================
 # WEBHOOK
@@ -827,10 +903,54 @@ async def razorpay_webhook(
             STATE
         )
 
-        # ----------------------------------------------------
-        # Persist only AFTER successful scoring/state update.
-        # ----------------------------------------------------
+        decision_record = {
+            "event_id": event_id,
+            "transaction_id": result.get(
+                "transaction_id"
+            ),
+            "created_at": int(
+                row["TransactionDT"]
+            ),
+            "amount": float(
+                row["TransactionAmt"]
+            ),
+            "currency": str(
+                payment.get(
+                    "currency",
+                    "INR"
+                )
+            ).upper(),
+            "raw_probability": result.get(
+                "raw_probability"
+            ),
+            "calibrated_risk_score": result.get(
+                "calibrated_risk_score"
+            ),
+            "risk_zone": result.get(
+                "risk_zone"
+            ),
+            "recommended_action": result.get(
+                "recommended_action"
+            ),
+            "primary_evidence": result.get(
+                "primary_evidence",
+                []
+            ),
+            "supporting_evidence": result.get(
+                "supporting_evidence",
+                []
+            ),
+        }
 
+        DECISIONS.append(
+            decision_record
+        )
+
+        # Keep the audit store bounded.
+        if len(DECISIONS) > 1000:
+            del DECISIONS[:-1000]
+
+        # Persist only AFTER successful scoring/state update.
         _save_state(
             STATE
         )
@@ -843,6 +963,10 @@ async def razorpay_webhook(
             PROCESSED_EVENTS
         )
 
+        _save_decisions(
+            DECISIONS
+        )
+
     return {
         "status": "scored",
         "event_id": event_id,
@@ -850,7 +974,6 @@ async def razorpay_webhook(
         "processed": True,
         "transaction": result,
     }
-
 
 # ============================================================
 # LOCAL TEST HELPER
