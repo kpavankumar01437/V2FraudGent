@@ -5,6 +5,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 let transactions = [];
 let transactionFilter = 'all';
+let lastHealth = null;
 
 function setToast(message) {
   const existing = $('.toast');
@@ -26,23 +27,63 @@ function scrollToTransactions() {
   $('#transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function formatAmount(amount, currency = 'INR') {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return '—';
+
+  if (String(currency).toUpperCase() === 'INR') {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(numericAmount);
+  }
+
+  return `${numericAmount.toFixed(2)} ${String(currency).toUpperCase()}`;
+}
+
+function formatTransactionTime(createdAt) {
+  const timestamp = Number(createdAt);
+  if (!Number.isFinite(timestamp)) return '—';
+
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(timestamp * 1000));
+}
+
+function formatTransactionDate(createdAt) {
+  const timestamp = Number(createdAt);
+  if (!Number.isFinite(timestamp)) return '—';
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(timestamp * 1000));
+}
+
+function scoreClass(score) {
+  const numericScore = Number(score);
+  if (!Number.isFinite(numericScore)) return 'low';
+  if (numericScore >= 0.85) return 'high-score';
+  if (numericScore >= 0.55) return 'medium-score';
+  return 'low';
+}
+
+function decisionClass(action) {
+  return action === 'ALLOW_MONITOR' ? 'allowed' : 'review';
+}
+
 function getVisibleTransactions(items = transactions) {
   if (transactionFilter === 'review') {
     return items.filter((item) => item.recommended_action !== 'ALLOW_MONITOR');
   }
   return items;
-}
-
-function setTransactionFilter(filter) {
-  transactionFilter = filter;
-  renderTransactions(getVisibleTransactions());
-
-  const visibleCount = getVisibleTransactions().length;
-  const message = filter === 'review'
-    ? `Showing ${visibleCount} review decision(s).`
-    : `Showing ${visibleCount} live decision(s).`;
-
-  setToast(message);
 }
 
 function showModal(title, subtitle, contentBuilder) {
@@ -53,37 +94,30 @@ function showModal(title, subtitle, contentBuilder) {
   overlay.id = 'v2-modal';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
-  overlay.style.cssText = [
-    'position:fixed', 'inset:0', 'z-index:9999', 'display:flex',
-    'align-items:center', 'justify-content:center', 'padding:24px',
-    'background:rgba(7,10,14,.62)', 'backdrop-filter:blur(6px)'
-  ].join(';');
 
   const panel = document.createElement('section');
-  panel.style.cssText = [
-    'width:min(620px,100%)', 'max-height:min(760px,90vh)', 'overflow:auto',
-    'background:#12161c', 'border:1px solid rgba(255,255,255,.10)',
-    'border-radius:18px', 'box-shadow:0 24px 80px rgba(0,0,0,.42)',
-    'padding:24px', 'color:#f4f7fa'
-  ].join(';');
+  panel.className = 'v2-modal-panel';
 
   const head = document.createElement('div');
-  head.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px;';
+  head.className = 'v2-modal-head';
 
   const headingWrap = document.createElement('div');
   const heading = document.createElement('h2');
   heading.textContent = title;
   heading.style.margin = '0 0 6px';
+
   const sub = document.createElement('p');
   sub.textContent = subtitle;
-  sub.style.cssText = 'margin:0;opacity:.68;font-size:14px;line-height:1.5;';
+  sub.className = 'muted';
+  sub.style.margin = '0';
+
   headingWrap.append(heading, sub);
 
   const close = document.createElement('button');
   close.type = 'button';
+  close.className = 'v2-modal-close';
   close.setAttribute('aria-label', 'Close dialog');
   close.textContent = '×';
-  close.style.cssText = 'border:0;background:rgba(255,255,255,.07);color:inherit;border-radius:10px;width:36px;height:36px;font-size:24px;line-height:1;cursor:pointer;';
   close.addEventListener('click', () => overlay.remove());
 
   head.append(headingWrap, close);
@@ -103,33 +137,38 @@ function showModal(title, subtitle, contentBuilder) {
 
 function addDetailRow(container, label, value) {
   const row = document.createElement('div');
-  row.style.cssText = 'display:grid;grid-template-columns:170px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.07);';
+  row.className = 'v2-detail-row';
+
   const labelNode = document.createElement('span');
   labelNode.textContent = label;
-  labelNode.style.opacity = '.62';
+
   const valueNode = document.createElement('strong');
-  valueNode.textContent = value;
-  valueNode.style.fontWeight = '600';
+  valueNode.textContent = value ?? '—';
+
   row.append(labelNode, valueNode);
   container.appendChild(row);
 }
 
 function showModelDetails() {
+  const health = lastHealth || {};
+
   showModal(
     'Research V2 policy details',
-    'Frozen configuration currently reported by the scoring service.',
+    'Configuration reported by the connected scoring service.',
     (content) => {
-      addDetailRow(content, 'Model', 'research_v2_65_15_20');
-      addDetailRow(content, 'Feature count', '92');
-      addDetailRow(content, 'Trees', '860');
-      addDetailRow(content, 'Review threshold', '0.55');
-      addDetailRow(content, 'High-risk threshold', '0.85');
+      addDetailRow(content, 'Model', health.model_version || health.model || 'research_v2');
+      addDetailRow(content, 'Feature count', String(health.feature_count ?? '—'));
+      addDetailRow(content, 'Trees', String(health.model_trees ?? '—'));
+      addDetailRow(content, 'Review threshold', String(health.review_threshold ?? '—'));
+      addDetailRow(content, 'High-risk threshold', String(health.high_threshold ?? '—'));
       addDetailRow(content, 'Calibration', 'Sigmoid logit calibration');
       addDetailRow(content, 'Decision mode', 'Research V2 chronological scoring');
       addDetailRow(content, 'Webhook scope', 'payment.captured');
+
       const note = document.createElement('p');
       note.textContent = 'The browser does not perform fraud scoring. Decisions come from the canonical Research V2 API runtime.';
-      note.style.cssText = 'margin:18px 0 0;opacity:.72;line-height:1.6;font-size:14px;';
+      note.className = 'muted';
+      note.style.margin = '18px 0 0';
       content.appendChild(note);
     }
   );
@@ -141,9 +180,10 @@ function showTransactionDetails(transaction) {
     'Decision returned by the Research V2 scoring API.',
     (content) => {
       addDetailRow(content, 'Transaction', transaction.transaction_id || 'Unknown');
-      addDetailRow(content, 'Time', formatTransactionTime(transaction.created_at));
+      addDetailRow(content, 'Date', formatTransactionDate(transaction.created_at));
       addDetailRow(content, 'Amount', formatAmount(transaction.amount, transaction.currency));
-      addDetailRow(content, 'Risk score', Number.isFinite(Number(transaction.calibrated_risk_score)) ? Number(transaction.calibrated_risk_score).toFixed(6) : '—');
+      addDetailRow(content, 'Raw probability', Number.isFinite(Number(transaction.raw_probability)) ? Number(transaction.raw_probability).toFixed(6) : '—');
+      addDetailRow(content, 'Calibrated score', Number.isFinite(Number(transaction.calibrated_risk_score)) ? Number(transaction.calibrated_risk_score).toFixed(6) : '—');
       addDetailRow(content, 'Risk zone', transaction.risk_zone || '—');
       addDetailRow(content, 'Decision', transaction.recommended_action || '—');
       addDetailRow(content, 'Event ID', transaction.event_id || '—');
@@ -161,7 +201,7 @@ function showTransactionDetails(transaction) {
       if (evidence.length === 0) {
         const empty = document.createElement('p');
         empty.textContent = 'No evidence items were returned for this decision.';
-        empty.style.opacity = '.68';
+        empty.className = 'muted';
         content.appendChild(empty);
         return;
       }
@@ -181,40 +221,40 @@ function showTransactionDetails(transaction) {
 function openSearch() {
   showModal(
     'Search live decisions',
-    'Search the transactions currently returned by the audit API.',
+    'Search the decisions currently loaded from the audit API.',
     (content) => {
       const input = document.createElement('input');
       input.type = 'search';
       input.placeholder = 'Transaction ID, risk zone, decision…';
       input.autocomplete = 'off';
-      input.style.cssText = 'width:100%;box-sizing:border-box;background:#0d1117;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 14px;font:inherit;outline:none;';
+      input.setAttribute('aria-label', 'Search live decisions');
+      input.className = 'v2-search-input';
 
       const resultNote = document.createElement('p');
-      resultNote.style.cssText = 'margin:12px 0 0;opacity:.68;font-size:13px;';
+      resultNote.className = 'muted';
+      resultNote.style.margin = '12px 0 0';
 
       const applySearch = () => {
         const query = input.value.trim().toLowerCase();
-        if (!query) {
-          resultNote.textContent = `${transactions.length} live decision(s) available.`;
-          transactionFilter = 'all';
-          renderTransactions(transactions);
-          return;
-        }
+        transactionFilter = query ? 'search' : 'all';
 
-        const matches = transactions.filter((item) => {
-          const haystack = [
-            item.transaction_id,
-            item.risk_zone,
-            item.recommended_action,
-            item.event_id,
-          ].filter(Boolean).join(' ').toLowerCase();
-          return haystack.includes(query);
-        });
+        const matches = query
+          ? transactions.filter((item) => {
+              const haystack = [
+                item.transaction_id,
+                item.risk_zone,
+                item.recommended_action,
+                item.event_id,
+              ].filter(Boolean).join(' ').toLowerCase();
+              return haystack.includes(query);
+            })
+          : transactions;
 
-        resultNote.textContent = `${matches.length} matching decision(s).`;
-        transactionFilter = 'search';
+        resultNote.textContent = query
+          ? `${matches.length} matching decision(s).`
+          : `${transactions.length} live decision(s) available.`;
+
         renderTransactions(matches);
-        scrollToTransactions();
       };
 
       input.addEventListener('input', applySearch);
@@ -223,6 +263,336 @@ function openSearch() {
       window.setTimeout(() => input.focus(), 0);
     }
   );
+}
+
+function setTransactionFilter(filter) {
+  transactionFilter = filter;
+  renderTransactions(getVisibleTransactions());
+
+  const visibleCount = getVisibleTransactions().length;
+  const message = filter === 'review'
+    ? `Showing ${visibleCount} review decision(s).`
+    : `Showing ${visibleCount} live decision(s).`;
+
+  setToast(message);
+}
+
+function renderTransactions(items) {
+  const body = $('[data-transactions-body]');
+  if (!body) return;
+
+  body.replaceChildren();
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+
+    const muted = document.createElement('span');
+    muted.className = 'muted';
+    muted.textContent = transactionFilter === 'review'
+      ? 'No review decisions in the loaded live audit window.'
+      : transactionFilter === 'search'
+        ? 'No decisions match this search.'
+        : 'No live decisions yet.';
+
+    cell.appendChild(muted);
+    row.appendChild(cell);
+    body.appendChild(row);
+    return;
+  }
+
+  items.forEach((transaction) => {
+    const row = document.createElement('tr');
+    row.tabIndex = 0;
+    row.style.cursor = 'pointer';
+    row.setAttribute('aria-label', `Open details for ${transaction.transaction_id || 'transaction'}`);
+
+    const transactionCell = document.createElement('td');
+    const transactionStrong = document.createElement('strong');
+    const transactionSmall = document.createElement('small');
+    transactionStrong.textContent = transaction.transaction_id || 'Unknown transaction';
+    transactionSmall.textContent = `${transaction.risk_zone || 'UNKNOWN'} · Research V2`;
+    transactionCell.append(transactionStrong, transactionSmall);
+
+    const timeCell = document.createElement('td');
+    timeCell.textContent = formatTransactionTime(transaction.created_at);
+
+    const amountCell = document.createElement('td');
+    amountCell.textContent = formatAmount(transaction.amount, transaction.currency);
+
+    const scoreCell = document.createElement('td');
+    const score = document.createElement('span');
+    score.className = `score ${scoreClass(transaction.calibrated_risk_score)}`;
+    const numericScore = Number(transaction.calibrated_risk_score);
+    score.textContent = Number.isFinite(numericScore) ? numericScore.toFixed(3) : '—';
+    scoreCell.appendChild(score);
+
+    const decisionCell = document.createElement('td');
+    const decision = document.createElement('span');
+    decision.className = `decision ${decisionClass(transaction.recommended_action)}`;
+    decision.textContent = transaction.recommended_action === 'ALLOW_MONITOR' ? 'Allowed' : 'Review';
+    decisionCell.appendChild(decision);
+
+    row.append(transactionCell, timeCell, amountCell, scoreCell, decisionCell);
+
+    const openDetails = () => showTransactionDetails(transaction);
+    row.addEventListener('click', openDetails);
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetails();
+      }
+    });
+
+    body.appendChild(row);
+  });
+}
+
+function renderAttention(items) {
+  const container = $('[data-attention-list]');
+  if (!container) return;
+
+  container.replaceChildren();
+
+  const attention = items
+    .filter((item) => item.recommended_action !== 'ALLOW_MONITOR')
+    .sort((a, b) => Number(b.calibrated_risk_score || 0) - Number(a.calibrated_risk_score || 0))
+    .slice(0, 3);
+
+  if (attention.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'attention-item';
+    const text = document.createElement('span');
+    text.className = 'muted';
+    text.textContent = 'No review decisions in the loaded live audit window.';
+    empty.appendChild(text);
+    container.appendChild(empty);
+    return;
+  }
+
+  attention.forEach((transaction) => {
+    const item = document.createElement('div');
+    item.className = 'attention-item';
+    item.tabIndex = 0;
+    item.style.cursor = 'pointer';
+
+    const risk = document.createElement('span');
+    risk.className = `risk ${Number(transaction.calibrated_risk_score) >= 0.85 ? 'high' : 'medium'}`;
+    risk.textContent = Number(transaction.calibrated_risk_score) >= 0.85 ? 'HIGH' : 'MED';
+
+    const middle = document.createElement('div');
+    const id = document.createElement('strong');
+    id.textContent = transaction.transaction_id || 'Unknown transaction';
+    const reason = document.createElement('p');
+    const evidence = Array.isArray(transaction.primary_evidence) && transaction.primary_evidence.length
+      ? transaction.primary_evidence[0]
+      : 'Research V2 review decision';
+    reason.textContent = typeof evidence === 'string' ? evidence : JSON.stringify(evidence);
+    middle.append(id, reason);
+
+    const amount = document.createElement('b');
+    amount.textContent = formatAmount(transaction.amount, transaction.currency);
+
+    item.append(risk, middle, amount);
+    const openDetails = () => showTransactionDetails(transaction);
+    item.addEventListener('click', openDetails);
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetails();
+      }
+    });
+
+    container.appendChild(item);
+  });
+}
+
+function renderMetrics(items) {
+  const list = Array.isArray(items) ? items : [];
+  const decisions = list.length;
+  const reviews = list.filter((item) => item.recommended_action !== 'ALLOW_MONITOR').length;
+  const high = list.filter((item) => Number(item.calibrated_risk_score) >= 0.85).length;
+  const scores = list.map((item) => Number(item.calibrated_risk_score)).filter(Number.isFinite);
+  const average = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
+
+  const decisionsNode = $('[data-metric-decisions]');
+  const reviewNode = $('[data-metric-review]');
+  const highNode = $('[data-metric-high]');
+  const averageNode = $('[data-metric-average]');
+
+  if (decisionsNode) decisionsNode.textContent = String(decisions);
+  if (reviewNode) reviewNode.textContent = String(reviews);
+  if (highNode) highNode.textContent = String(high);
+  if (averageNode) averageNode.textContent = average == null ? '—' : average.toFixed(3);
+
+  $('[data-metric-decisions-note]')?.replaceChildren(document.createTextNode('Loaded from live audit API · max 200'));
+  $('[data-metric-review-note]')?.replaceChildren(document.createTextNode('Research V2 review threshold'));
+  $('[data-metric-high-note]')?.replaceChildren(document.createTextNode('Risk score ≥ 0.85'));
+}
+
+function getBucketSettings(hours) {
+  if (hours >= 168) {
+    return { count: 7, bucketMs: 24 * 60 * 60 * 1000, date: { day: 'numeric', month: 'short' } };
+  }
+  return { count: 24, bucketMs: 60 * 60 * 1000, date: { hour: 'numeric' } };
+}
+
+function renderChart(items, hours = 24) {
+  const line = $('[data-chart-line]');
+  const area = $('[data-chart-area]');
+  const labels = $('[data-chart-labels]');
+  if (!line || !area || !labels) return;
+
+  const settings = getBucketSettings(hours);
+  const now = Date.now();
+  const end = Math.floor(now / settings.bucketMs) * settings.bucketMs + settings.bucketMs;
+  const start = end - settings.count * settings.bucketMs;
+  const buckets = Array.from({ length: settings.count }, () => 0);
+
+  items.forEach((item) => {
+    const timestamp = Number(item.created_at) * 1000;
+    if (!Number.isFinite(timestamp) || timestamp < start || timestamp >= end) return;
+    const index = Math.floor((timestamp - start) / settings.bucketMs);
+    if (index >= 0 && index < buckets.length) buckets[index] += 1;
+  });
+
+  const max = Math.max(...buckets, 1);
+  const width = 720;
+  const baseline = 220;
+  const top = 22;
+  const step = width / Math.max(buckets.length - 1, 1);
+  const points = buckets.map((count, index) => {
+    const x = index * step;
+    const y = baseline - ((count / max) * (baseline - top));
+    return [x, y];
+  });
+
+  const linePath = points
+    .map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`)
+    .join(' ');
+
+  const areaPath = `${linePath} L ${width} ${baseline} L 0 ${baseline} Z`;
+  line.setAttribute('d', linePath || `M0 ${baseline}`);
+  area.setAttribute('d', areaPath);
+
+  labels.replaceChildren();
+  const formatter = new Intl.DateTimeFormat('en-IN', settings.date);
+  const labelIndexes = Array.from({ length: 7 }, (_, index) => Math.round(index * (buckets.length - 1) / 6));
+
+  labelIndexes.forEach((bucketIndex) => {
+    const span = document.createElement('span');
+    const bucketTime = start + bucketIndex * settings.bucketMs;
+    span.textContent = formatter.format(new Date(bucketTime));
+    labels.appendChild(span);
+  });
+}
+
+function renderPolicy(health) {
+  if (!health) return;
+  $('[data-policy-features]') && ($('[data-policy-features]').textContent = `${health.feature_count ?? '—'} features`);
+  $('[data-policy-review]') && ($('[data-policy-review]').textContent = String(health.review_threshold ?? '—'));
+  $('[data-policy-high]') && ($('[data-policy-high]').textContent = String(health.high_threshold ?? '—'));
+}
+
+async function loadTransactions() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/transactions?limit=200`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Transaction endpoint returned HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data?.status !== 'ok') {
+      throw new Error('Transaction endpoint responded without status=ok');
+    }
+
+    transactions = Array.isArray(data.transactions) ? data.transactions : [];
+    renderMetrics(transactions);
+    renderAttention(transactions);
+    renderTransactions(getVisibleTransactions());
+    renderChart(transactions, Number($('[data-period-select]')?.value || 24));
+  } catch (error) {
+    transactions = [];
+    renderMetrics([]);
+    renderAttention([]);
+    renderTransactions([]);
+    renderChart([], Number($('[data-period-select]')?.value || 24));
+    console.error('Unable to load live transactions:', error);
+  }
+}
+
+function renderAgentOffline(message) {
+  const badge = $('[data-connection-badge]');
+  const dot = $('[data-status-dot]');
+  const statusText = $('[data-status-text]');
+
+  badge?.classList.remove('checking', 'online');
+  badge?.classList.add('offline');
+  if (badge) badge.textContent = 'OFFLINE';
+  if (dot) dot.style.background = '#ef9c9c';
+  if (statusText) statusText.textContent = 'Research V2 offline';
+
+  const copy = $('[data-connection-copy]');
+  if (copy) copy.textContent = message || `Unable to reach ${API_BASE_URL}`;
+  const pill = $('[data-workspace-pill]');
+  if (pill) pill.textContent = 'API offline';
+}
+
+function renderAgentOnline(health) {
+  lastHealth = health;
+
+  const badge = $('[data-connection-badge]');
+  const dot = $('[data-status-dot]');
+  const statusText = $('[data-status-text]');
+
+  badge?.classList.remove('checking', 'offline');
+  badge?.classList.add('online');
+  if (badge) badge.textContent = 'ONLINE';
+  if (dot) dot.style.background = '#9bd65b';
+  if (statusText) statusText.textContent = 'Research V2 online';
+
+  const copy = $('[data-connection-copy]');
+  if (copy) copy.textContent = `${API_BASE_URL} · health endpoint responding`;
+  if ($('[data-agent-model]')) $('[data-agent-model]').textContent = health.model_version || health.model || 'Research V2';
+  if ($('[data-agent-features]')) $('[data-agent-features]').textContent = String(health.feature_count ?? '—');
+  if ($('[data-agent-trees]')) $('[data-agent-trees]').textContent = String(health.model_trees ?? '—');
+  if ($('[data-workspace-pill]')) $('[data-workspace-pill]').textContent = 'API connected';
+  renderPolicy(health);
+}
+
+async function checkAgent() {
+  const badge = $('[data-connection-badge]');
+  if (badge) {
+    badge.classList.remove('online', 'offline');
+    badge.classList.add('checking');
+    badge.textContent = 'Checking';
+  }
+
+  const copy = $('[data-connection-copy]');
+  if (copy) copy.textContent = `Connecting to ${API_BASE_URL}…`;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) throw new Error(`Health check returned HTTP ${response.status}`);
+
+    const health = await response.json();
+    if (health?.status !== 'ok') throw new Error('API responded without status=ok');
+
+    renderAgentOnline(health);
+  } catch (error) {
+    renderAgentOffline(error instanceof Error ? error.message : 'Unable to reach the API');
+  }
 }
 
 $('[data-menu-toggle]')?.addEventListener('click', () => {
@@ -254,302 +624,17 @@ $$('a[href="#transactions"]').forEach((link) => {
   });
 });
 
-$$('a[href="#model"]').forEach((link) => {
-  link.addEventListener('click', (event) => {
-    event.preventDefault();
-    showModelDetails();
-  });
+$('[data-model-details]')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  showModelDetails();
 });
 
 $('.icon-btn')?.addEventListener('click', openSearch);
 $('.shortcut')?.addEventListener('click', openSearch);
-
-document.addEventListener('keydown', (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-    event.preventDefault();
-    openSearch();
-  }
-  if (event.key === 'Escape') {
-    $('#v2-modal')?.remove();
-  }
+$('[data-period-select]')?.addEventListener('change', (event) => {
+  const hours = Number(event.currentTarget.value) || 24;
+  renderChart(transactions, hours);
 });
-
-function renderAgentOffline(message) {
-  const badge = $('[data-connection-badge]');
-  const dot = $('[data-status-dot]');
-  const statusText = $('[data-status-text]');
-
-  badge?.classList.remove('checking', 'online');
-  badge?.classList.add('offline');
-  if (badge) badge.textContent = 'OFFLINE';
-
-  if (dot) dot.style.background = '#ef9c9c';
-  if (statusText) statusText.textContent = 'Research V2 offline';
-
-  const copy = $('[data-connection-copy]');
-  if (copy) copy.textContent = message || `Unable to reach ${API_BASE_URL}`;
-}
-
-function renderAgentOnline(health) {
-  const badge = $('[data-connection-badge]');
-  const dot = $('[data-status-dot]');
-  const statusText = $('[data-status-text]');
-
-  badge?.classList.remove('checking', 'offline');
-  badge?.classList.add('online');
-  if (badge) badge.textContent = 'ONLINE';
-  if (dot) dot.style.background = '#9bd65b';
-  if (statusText) statusText.textContent = 'Research V2 online';
-
-  const copy = $('[data-connection-copy]');
-  if (copy) copy.textContent = `${API_BASE_URL} · health endpoint responding`;
-  if ($('[data-agent-model]')) $('[data-agent-model]').textContent = health.model_version || health.model || 'Research V2';
-  if ($('[data-agent-features]')) $('[data-agent-features]').textContent = String(health.feature_count ?? '—');
-  if ($('[data-agent-trees]')) $('[data-agent-trees]').textContent = String(health.model_trees ?? '—');
-
-  const pill = $('[data-workspace-pill]');
-  if (pill) pill.textContent = 'API connected';
-}
-
-function formatAmount(amount, currency = 'INR') {
-  const numericAmount = Number(amount);
-
-  if (!Number.isFinite(numericAmount)) {
-    return '—';
-  }
-
-  if (currency === 'INR') {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2,
-    }).format(numericAmount);
-  }
-
-  return `${numericAmount.toFixed(2)} ${currency}`;
-}
-
-function formatTransactionTime(createdAt) {
-  const timestamp = Number(createdAt);
-
-  if (!Number.isFinite(timestamp)) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(timestamp * 1000));
-}
-
-function scoreClass(score) {
-  const numericScore = Number(score);
-
-  if (!Number.isFinite(numericScore)) {
-    return 'low';
-  }
-
-  if (numericScore >= 0.85) {
-    return 'high-score';
-  }
-
-  if (numericScore >= 0.55) {
-    return 'medium-score';
-  }
-
-  return 'low';
-}
-
-function decisionClass(action) {
-  return action === 'ALLOW_MONITOR'
-    ? 'allowed'
-    : 'review';
-}
-
-function renderTransactions(items) {
-  const body = $('[data-transactions-body]');
-
-  if (!body) {
-    return;
-  }
-
-  body.replaceChildren();
-
-  if (!Array.isArray(items) || items.length === 0) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-
-    cell.colSpan = 5;
-    const message = transactionFilter === 'review'
-      ? 'No review decisions in the current live audit window.'
-      : 'No live decisions yet.';
-    const muted = document.createElement('span');
-    muted.className = 'muted';
-    muted.textContent = message;
-    cell.appendChild(muted);
-
-    row.appendChild(cell);
-    body.appendChild(row);
-    return;
-  }
-
-  items.forEach((transaction) => {
-    const row = document.createElement('tr');
-    row.tabIndex = 0;
-    row.style.cursor = 'pointer';
-
-    const transactionCell = document.createElement('td');
-    const transactionStrong = document.createElement('strong');
-    const transactionSmall = document.createElement('small');
-
-    transactionStrong.textContent =
-      transaction.transaction_id || 'Unknown transaction';
-
-    transactionSmall.textContent =
-      `${transaction.risk_zone || 'UNKNOWN'} · Research V2`;
-
-    transactionCell.append(
-      transactionStrong,
-      transactionSmall
-    );
-
-    const timeCell = document.createElement('td');
-    timeCell.textContent = formatTransactionTime(
-      transaction.created_at
-    );
-
-    const amountCell = document.createElement('td');
-    amountCell.textContent = formatAmount(
-      transaction.amount,
-      transaction.currency
-    );
-
-    const scoreCell = document.createElement('td');
-    const score = document.createElement('span');
-    score.className = `score ${scoreClass(
-      transaction.calibrated_risk_score
-    )}`;
-
-    score.textContent = Number.isFinite(
-      Number(transaction.calibrated_risk_score)
-    )
-      ? Number(transaction.calibrated_risk_score).toFixed(3)
-      : '—';
-
-    scoreCell.appendChild(score);
-
-    const decisionCell = document.createElement('td');
-    const decision = document.createElement('span');
-
-    decision.className =
-      `decision ${decisionClass(
-        transaction.recommended_action
-      )}`;
-
-    decision.textContent =
-      transaction.recommended_action === 'ALLOW_MONITOR'
-        ? 'Allowed'
-        : 'Review';
-
-    decisionCell.appendChild(decision);
-
-    row.append(
-      transactionCell,
-      timeCell,
-      amountCell,
-      scoreCell,
-      decisionCell
-    );
-
-    const openDetails = () => showTransactionDetails(transaction);
-    row.addEventListener('click', openDetails);
-    row.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openDetails();
-      }
-    });
-
-    body.appendChild(row);
-  });
-}
-
-async function loadTransactions() {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/transactions?limit=50`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Transaction endpoint returned HTTP ${response.status}`
-      );
-    }
-
-    const data = await response.json();
-
-    if (data?.status !== 'ok') {
-      throw new Error(
-        'Transaction endpoint responded without status=ok'
-      );
-    }
-
-    transactions = Array.isArray(data.transactions)
-      ? data.transactions
-      : [];
-
-    renderTransactions(getVisibleTransactions());
-  } catch (error) {
-    transactions = [];
-    renderTransactions([]);
-
-    console.error(
-      'Unable to load live transactions:',
-      error
-    );
-  }
-}
-
-async function checkAgent() {
-  const badge = $('[data-connection-badge]');
-  if (badge) {
-    badge.classList.remove('online', 'offline');
-    badge.classList.add('checking');
-    badge.textContent = 'Checking';
-  }
-
-  const copy = $('[data-connection-copy]');
-  if (copy) copy.textContent = `Connecting to ${API_BASE_URL}…`;
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Health check returned HTTP ${response.status}`);
-    }
-
-    const health = await response.json();
-    if (health?.status !== 'ok') {
-      throw new Error('API responded without status=ok');
-    }
-
-    renderAgentOnline(health);
-  } catch (error) {
-    renderAgentOffline(error instanceof Error ? error.message : 'Unable to reach the API');
-  }
-}
 
 $('[data-connect-agent]')?.addEventListener('click', async (event) => {
   const button = event.currentTarget;
@@ -559,6 +644,18 @@ $('[data-connect-agent]')?.addEventListener('click', async (event) => {
   await loadTransactions();
   button.disabled = false;
   button.textContent = 'Reconnect';
+  setToast('Connection and live decisions refreshed.');
+});
+
+document.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    openSearch();
+  }
+
+  if (event.key === 'Escape') {
+    $('#v2-modal')?.remove();
+  }
 });
 
 window.addEventListener('resize', () => {
@@ -578,3 +675,6 @@ if (dateLabel) {
 
 checkAgent();
 loadTransactions();
+window.setInterval(() => {
+  loadTransactions();
+}, 15000);
