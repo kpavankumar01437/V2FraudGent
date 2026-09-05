@@ -1,29 +1,39 @@
 {$V2FRAUDGENT_DOMAIN} {
     encode gzip
 
-    # Razorpay must reach the webhook without dashboard authentication.
     @webhook path /razorpay/webhook
     handle @webhook {
         reverse_proxy backend:8012
     }
 
-    # Public health probe for uptime checks.
     @health path /health
     handle @health {
         reverse_proxy backend:8012
     }
+    
+        # Public browser API for the Vercel frontend.
+    # Only requests under /public-api/ bypass dashboard Basic Auth.
+    @public_api {
+        path /public-api/*
+        method GET POST OPTIONS
+    }
 
-    # Protect the Console and transaction-audit API with HTTP Basic Auth.
-    # Credentials are supplied through the deployment environment; no secret
-    # is stored in the repository or frontend bundle.
-    handle {
+    handle @public_api {
+        uri strip_prefix /public-api
+        reverse_proxy backend:8012
+    }
+
+    @api path /api/*
+    handle @api {
         basic_auth {
             {$CADDY_DASHBOARD_USER} {$CADDY_DASHBOARD_HASH}
         }
+        reverse_proxy backend:8012
+    }
 
-        @api path /api/*
-        handle @api {
-            reverse_proxy backend:8012
+    handle {
+        basic_auth {
+            {$CADDY_DASHBOARD_USER} {$CADDY_DASHBOARD_HASH}
         }
 
         root * /srv/frontend
