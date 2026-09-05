@@ -10,6 +10,9 @@ WORKDIR /content/drive/MyDrive/razorpay_fraud_data/deployment/research_v2_api
 RUN mkdir -p \
     /content/drive/MyDrive/razorpay_fraud_data/models \
     /content/drive/MyDrive/razorpay_fraud_data/deployment/research_v2_api
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements-pinned.txt /tmp/requirements-pinned.txt
 RUN python -m pip install --upgrade pip \
