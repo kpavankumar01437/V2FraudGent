@@ -26,13 +26,21 @@ function scrollToTransactions() {
   $('#transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function getVisibleTransactions(items = transactions) {
+  if (transactionFilter === 'review') {
+    return items.filter((item) => item.recommended_action !== 'ALLOW_MONITOR');
+  }
+  return items;
+}
+
 function setTransactionFilter(filter) {
   transactionFilter = filter;
-  renderTransactions(transactions);
+  renderTransactions(getVisibleTransactions());
 
+  const visibleCount = getVisibleTransactions().length;
   const message = filter === 'review'
-    ? `Showing ${transactions.filter((item) => item.recommended_action !== 'ALLOW_MONITOR').length} review decision(s).`
-    : `Showing ${transactions.length} live decision(s).`;
+    ? `Showing ${visibleCount} review decision(s).`
+    : `Showing ${visibleCount} live decision(s).`;
 
   setToast(message);
 }
@@ -46,28 +54,17 @@ function showModal(title, subtitle, contentBuilder) {
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.style.cssText = [
-    'position:fixed',
-    'inset:0',
-    'z-index:9999',
-    'display:flex',
-    'align-items:center',
-    'justify-content:center',
-    'padding:24px',
-    'background:rgba(7,10,14,.62)',
-    'backdrop-filter:blur(6px)'
+    'position:fixed', 'inset:0', 'z-index:9999', 'display:flex',
+    'align-items:center', 'justify-content:center', 'padding:24px',
+    'background:rgba(7,10,14,.62)', 'backdrop-filter:blur(6px)'
   ].join(';');
 
   const panel = document.createElement('section');
   panel.style.cssText = [
-    'width:min(620px,100%)',
-    'max-height:min(760px,90vh)',
-    'overflow:auto',
-    'background:#12161c',
-    'border:1px solid rgba(255,255,255,.10)',
-    'border-radius:18px',
-    'box-shadow:0 24px 80px rgba(0,0,0,.42)',
-    'padding:24px',
-    'color:#f4f7fa'
+    'width:min(620px,100%)', 'max-height:min(760px,90vh)', 'overflow:auto',
+    'background:#12161c', 'border:1px solid rgba(255,255,255,.10)',
+    'border-radius:18px', 'box-shadow:0 24px 80px rgba(0,0,0,.42)',
+    'padding:24px', 'color:#f4f7fa'
   ].join(';');
 
   const head = document.createElement('div');
@@ -245,15 +242,14 @@ $$('nav a').forEach((link) => {
 });
 
 $('[data-review-queue]')?.addEventListener('click', () => {
-  scrollToTransactions();
   setTransactionFilter('review');
+  scrollToTransactions();
 });
 
 $$('a[href="#transactions"]').forEach((link) => {
   link.addEventListener('click', (event) => {
     event.preventDefault();
-    transactionFilter = 'all';
-    renderTransactions(transactions);
+    setTransactionFilter('all');
     scrollToTransactions();
   });
 });
@@ -510,11 +506,7 @@ async function loadTransactions() {
       ? data.transactions
       : [];
 
-    renderTransactions(
-      transactionFilter === 'review'
-        ? transactions.filter((item) => item.recommended_action !== 'ALLOW_MONITOR')
-        : transactions
-    );
+    renderTransactions(getVisibleTransactions());
   } catch (error) {
     transactions = [];
     renderTransactions([]);
@@ -564,6 +556,7 @@ $('[data-connect-agent]')?.addEventListener('click', async (event) => {
   button.disabled = true;
   button.textContent = 'Connecting…';
   await checkAgent();
+  await loadTransactions();
   button.disabled = false;
   button.textContent = 'Reconnect';
 });
