@@ -6,7 +6,7 @@ V2FraudGent is a chronological fraud-risk scoring platform built around the Rese
 
 - **Research V2** — chronological transaction feature engineering, model inference, calibration, and evidence generation.
 - **V2FraudGent API** — webhook-driven scoring API for payment events.
-- **V2FraudGent Console** — planned dashboard for monitoring risk decisions, evidence, and operational outcomes.
+- **V2FraudGent Console** — browser dashboard for live connection status, recent Research V2 decisions, review filtering, transaction details, search, and model/policy inspection.
 
 ## Current status
 
@@ -20,10 +20,15 @@ The Research V2 inference pipeline has been validated for:
 - Restart persistence
 - Concurrency and failure isolation
 - Production observability checks
+- Live decision audit feed used by the Console
+
+The Console currently connects to the API through `/health` and `/api/transactions`. Review queue filtering, transaction-detail inspection, live-search, and model/policy details are handled in the browser without creating a second fraud-scoring path.
 
 ## Security
 
 Never commit API keys, webhook secrets, model binaries, serialized state, customer data, or payment payloads containing personal information. Configure secrets through environment variables or the deployment platform's secret manager.
+
+The public deployment must also protect the transaction-audit endpoint with an authenticated application boundary and place the Research V2 state/audit files on durable storage.
 
 ## Planned structure
 
