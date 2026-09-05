@@ -23,4 +23,10 @@ jobs:
         run: bash -n backend/entrypoint.sh
 
       - name: Docker Compose configuration check
+        env:
+          V2FRAUDGENT_DOMAIN: ':80'
+          RAZORPAY_WEBHOOK_SECRET: ci-test-webhook-secret
+          V2FRAUDGENT_CORS_ORIGINS: http://localhost
+          CADDY_DASHBOARD_USER: ci-admin
+          CADDY_DASHBOARD_PASSWORD: ci-test-password
         run: docker compose -f deployment/docker-compose.production.yml config
