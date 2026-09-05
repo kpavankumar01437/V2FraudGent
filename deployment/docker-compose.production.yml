@@ -5,6 +5,8 @@ services:
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:?set in deployment environment}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:?set in deployment environment}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:?set in deployment environment}
       V2FRAUDGENT_ENV: production
       V2FRAUDGENT_CORS_ORIGINS: ${V2FRAUDGENT_CORS_ORIGINS:?set to the public console origin}

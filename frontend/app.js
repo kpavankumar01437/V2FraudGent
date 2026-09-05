@@ -595,6 +595,175 @@ async function checkAgent() {
   }
 }
 
+function setPaymentStatus(message) {
+  const node = $('[data-payment-status]');
+  if (node) node.textContent = message;
+}
+
+async function startTestPayment() {
+  const amountInput = $('[data-payment-amount]');
+  const button = $('[data-test-payment]');
+
+  const amountRupees = Number(
+    amountInput?.value
+  );
+
+  if (!Number.isFinite(amountRupees) || amountRupees <= 0) {
+    setToast('Enter a valid payment amount.');
+    return;
+  }
+
+  const amountPaise = Math.round(
+    amountRupees * 100
+  );
+
+  if (amountPaise < 100) {
+    setToast('Minimum test payment is ?1.');
+    return;
+  }
+
+  if (amountPaise > 10000000) {
+    setToast('Maximum demo payment is ?100,000.');
+    return;
+  }
+
+  if (
+    typeof window.Razorpay !== 'function'
+  ) {
+    setToast('Razorpay Checkout failed to load.');
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Creating order?';
+  setPaymentStatus(
+    'Creating a secure Razorpay Test Mode order?'
+  );
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/create-order`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          amount_paise: amountPaise,
+          currency: 'INR',
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data?.status !== 'ok') {
+      throw new Error(
+        data?.detail ||
+        `Order endpoint returned HTTP ${response.status}`
+      );
+    }
+
+    const order = data.order;
+
+    setPaymentStatus(
+      `Order ${order.id} created. Opening Razorpay Checkout?`
+    );
+
+    const options = {
+      key: data.key_id,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'V2FraudGent',
+      description: 'Research V2 fraud-intelligence demo',
+      order_id: order.id,
+
+      handler: function (checkoutResponse) {
+        const paymentId =
+          checkoutResponse?.razorpay_payment_id || 'unknown';
+
+        setPaymentStatus(
+          `Payment ${paymentId} completed in Checkout. Waiting for the payment.captured webhook and Research V2 decision?`
+        );
+
+        setToast(
+          'Payment completed. Refreshing fraud decisions?'
+        );
+
+        loadTransactions();
+
+        window.setTimeout(
+          loadTransactions,
+          3000
+        );
+
+        window.setTimeout(
+          loadTransactions,
+          7000
+        );
+      },
+
+      modal: {
+        ondismiss: function () {
+          setPaymentStatus(
+            'Checkout closed. No payment was confirmed by the browser.'
+          );
+        },
+      },
+
+      theme: {
+        color: '#3399cc',
+      },
+    };
+
+    const razorpayCheckout =
+      new window.Razorpay(options);
+
+    razorpayCheckout.on(
+      'payment.failed',
+      function (response) {
+        const description =
+          response?.error?.description ||
+          'Payment failed.';
+
+        setPaymentStatus(
+          description
+        );
+
+        setToast(
+          'Razorpay test payment failed.'
+        );
+      }
+    );
+
+    razorpayCheckout.open();
+
+  } catch (error) {
+    console.error(
+      'Unable to start Razorpay test payment:',
+      error
+    );
+
+    setPaymentStatus(
+      error instanceof Error
+        ? error.message
+        : 'Unable to start payment.'
+    );
+
+    setToast(
+      'Unable to create Razorpay order.'
+    );
+
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Pay ?' +
+      amountRupees.toFixed(0);
+  }
+}
+
+
 $('[data-menu-toggle]')?.addEventListener('click', () => {
   $('#sidebar')?.classList.add('open');
   $('[data-mobile-backdrop]')?.classList.add('open');
@@ -610,6 +779,29 @@ $$('nav a').forEach((link) => {
     closeMobileMenu();
   });
 });
+
+$('[data-payment-amount]')?.addEventListener(
+  'input',
+  (event) => {
+    const amount = Number(
+      event.currentTarget.value
+    );
+
+    if (Number.isFinite(amount) && amount > 0) {
+      $('[data-test-payment]').textContent =
+        `Pay ?${amount.toFixed(0)}`;
+    } else {
+      $('[data-test-payment]').textContent =
+        'Pay';
+    }
+  }
+);
+
+$('[data-test-payment]')?.addEventListener(
+  'click',
+  startTestPayment
+);
+
 
 $('[data-review-queue]')?.addEventListener('click', () => {
   setTransactionFilter('review');

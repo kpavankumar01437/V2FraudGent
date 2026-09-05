@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import razorpay
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -661,6 +662,114 @@ def health():
         "state_type":
             type(STATE).__name__,
     }
+
+@app.post(
+    "/api/create-order"
+)
+async def create_order(
+    request: Request
+):
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Request body must be valid JSON."
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Request body must be an object."
+        )
+
+    amount_paise = payload.get("amount_paise")
+    currency = str(
+        payload.get("currency", "INR")
+    ).upper()
+
+    # Client sends integer paise. Never use a float for the
+    # server-side Razorpay order amount.
+    if (
+        isinstance(amount_paise, bool)
+        or not isinstance(amount_paise, int)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="amount_paise must be an integer."
+        )
+
+    if amount_paise < 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Minimum test payment amount is 100 paise."
+        )
+
+    if amount_paise > 10000000:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum demo payment amount is ?100,000."
+        )
+
+    if currency != "INR":
+        raise HTTPException(
+            status_code=400,
+            detail="Only INR payments are supported by this demo."
+        )
+
+    key_id = os.environ.get(
+        "RAZORPAY_KEY_ID"
+    )
+
+    key_secret = os.environ.get(
+        "RAZORPAY_KEY_SECRET"
+    )
+
+    if not key_id or not key_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="Razorpay API credentials are not configured."
+        )
+
+    try:
+        client = razorpay.Client(
+            auth=(
+                key_id,
+                key_secret,
+            )
+        )
+
+        order = client.order.create(
+            data={
+                "amount": amount_paise,
+                "currency": currency,
+                "receipt": (
+                    f"v2fg_{int(__import__('time').time() * 1000)}"
+                ),
+                "notes": {
+                    "source": "V2FraudGent",
+                    "mode": "Research V2 demo",
+                },
+            }
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to create Razorpay order."
+        ) from exc
+
+    return {
+        "status": "ok",
+        "key_id": key_id,
+        "order": {
+            "id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "status": order["status"],
+        },
+    }
+
 
 @app.get(
     "/api/transactions"

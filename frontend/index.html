@@ -64,6 +64,44 @@
         <button type="button" class="primary-btn" data-review-queue>＋ Review queue</button>
       </section>
 
+      <section class="panel" aria-label="Razorpay test payment" style="margin-bottom:24px;">
+        <div class="panel-head">
+          <div>
+            <h3>Razorpay Test Payment</h3>
+            <p class="muted">Create a Test Mode order and run it through the live fraud pipeline.</p>
+          </div>
+          <span class="live-label">TEST MODE</span>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:180px;">
+            <span class="metric-label">Amount (INR)</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value="100"
+              data-payment-amount
+              aria-label="Test payment amount in INR"
+              style="padding:11px 12px;border:1px solid #2b3340;border-radius:8px;background:#151a21;color:inherit;"
+            />
+          </label>
+
+          <button
+            type="button"
+            class="primary-btn"
+            data-test-payment
+          >
+            Pay ?100
+          </button>
+        </div>
+
+        <p class="muted" data-payment-status style="margin:12px 0 0;">
+          Ready to create a Test Mode order.
+        </p>
+      </section>
+
+
       <section class="metrics" aria-label="Live risk metrics">
         <article>
           <span class="metric-label">Recent decisions</span>
@@ -228,6 +266,8 @@
     </main>
   </div>
 
+  <script src="./config.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script src="./app.js"></script>
 </body>
 
