@@ -1,0 +1,26 @@
+name: V2FraudGent verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax check
+        run: python -m py_compile backend/app.py backend/research_v2_runtime.py
+
+      - name: Frontend JavaScript syntax check
+        run: node --check frontend/app.js
+
+      - name: Shell syntax check
+        run: bash -n backend/entrypoint.sh
+
+      - name: Docker Compose configuration check
+        run: docker compose -f deployment/docker-compose.production.yml config
